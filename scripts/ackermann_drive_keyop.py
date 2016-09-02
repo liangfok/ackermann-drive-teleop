@@ -134,5 +134,5 @@ class AckermannDriveKeyop:
         sys.exit()
 
 if __name__ == '__main__':
-    rospy.init_node('ackermann_drive_keyop_node')
+    rospy.init_node('ackermann_drive_keyop_node', anonymous=True)
     keyop = AckermannDriveKeyop(sys.argv[1:len(sys.argv)])

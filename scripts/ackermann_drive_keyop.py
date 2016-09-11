@@ -34,6 +34,8 @@ key_bindings = {
     '\x20' : ( 0.0 , 0.0),
     '\x09' : ( 0.0 , 0.0)}
 
+kNumSpeedIncrements = 10
+kNumSteeringIncrements = 10
 
 class AckermannDriveKeyop:
 
@@ -58,8 +60,8 @@ class AckermannDriveKeyop:
                                      float(max_steering_angle)]
         for key in key_bindings:
             key_bindings[key] = \
-                    (key_bindings[key][0] * float(max_speed) / 5,
-                     key_bindings[key][1] * float(max_steering_angle) / 5)
+                (key_bindings[key][0] * float(max_speed) / kNumSpeedIncrements,
+                key_bindings[key][1] * float(max_steering_angle) / kNumSteeringIncrements)
 
         self.speed = 0
         self.steering_angle = 0

@@ -1,0 +1,16 @@
+<launch>
+  <!-- 10 m/s = 22.37 mph -->
+  <arg name="max_speed" default="10" />
+  <arg name="max_angle" default="0.7" />
+  <arg name="topic" default="/drake/ackermann_cmd" />
+
+  <param name="use_sim_time" type="bool" value="true" />
+
+  <node
+  	name="ackermann_drive_keyop"
+  	type="ackermann_drive_keyop.py"
+  	pkg="ackermann_drive_teleop"
+  	output='screen'
+  	args="$(arg max_speed) $(arg max_angle) $(arg topic)"/>
+</launch>
+

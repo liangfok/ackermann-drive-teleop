@@ -34,8 +34,25 @@ key_bindings = {
     '\x20' : ( 0.0 , 0.0),
     '\x09' : ( 0.0 , 0.0)}
 
-kNumSpeedIncrements = 10
-kNumSteeringIncrements = 10
+# Specifies the number of time the key needs to be typed to span the entire
+# range of speeds and steering angles.
+kNumSpeedIncrements = 20
+kNumSteeringIncrements = 20
+
+# Specifies the maximum change in speed per second.
+# The Prius accelerates from 0 - 60 mph in 10 seconds. This converts to a max
+# acceleration of 26.8224 m/s per 10 seconds, which is 2.68224 m/s^2.
+kMaxDeltaSpeed = 2.68224
+
+# Specifies the maximum change in steering angle per second.
+# Our current model of the Prius has a steering angle range of 1 radian
+# (60 degrees). Let's assume it takes 2 seconds to traverse the entire steering
+# angle range. This amounts to a maximum change of 1 radian / 2 seconds =
+# 0.5 radians / second.
+kMaxDeltaSteeringAngle = 0.5
+
+# Defines the period between publishing AckermannDriveStamped messages.
+kPublishPeriod = 0.2
 
 class AckermannDriveKeyop:
 
@@ -65,6 +82,8 @@ class AckermannDriveKeyop:
 
         self.speed = 0
         self.steering_angle = 0
+        self.reference_speed = 0
+        self.reference_steering_angle = 0
         self.motors_pub = rospy.Publisher(
             cmd_topic, AckermannDriveStamped, queue_size=1)
         rospy.Timer(rospy.Duration(1.0/5.0), self.pub_callback, oneshot=False)
@@ -72,12 +91,33 @@ class AckermannDriveKeyop:
         self.key_loop()
 
     def pub_callback(self, event):
+        if self.reference_speed != self.speed:
+            max_speed_change = kMaxDeltaSpeed * kPublishPeriod
+            if self.reference_speed < self.speed:
+                self.reference_speed = self.reference_speed + max_speed_change
+                if self.reference_speed > self.speed:
+                    self.reference_speed = self.speed
+            else:
+                self.reference_speed = self.reference_speed - max_speed_change
+                if self.reference_speed < self.speed:
+                    self.reference_speed = self.speed
+        if self.reference_steering_angle != self.steering_angle:
+            max_steering_angle_change = kMaxDeltaSteeringAngle * kPublishPeriod
+            if self.reference_steering_angle < self.steering_angle:
+                self.reference_steering_angle = self.reference_steering_angle + max_steering_angle_change
+                if self.reference_steering_angle > self.steering_angle:
+                    self.reference_steering_angle = self.steering_angle
+            else:
+                self.reference_steering_angle = self.reference_steering_angle - max_steering_angle_change
+                if self.reference_steering_angle < self.steering_angle:
+                    self.reference_steering_angle = self.steering_angle
         ackermann_cmd_msg = AckermannDriveStamped()
         ackermann_cmd_msg = AckermannDriveStamped()
         ackermann_cmd_msg.header.stamp = rospy.Time.now()
-        ackermann_cmd_msg.drive.speed = self.speed
-        ackermann_cmd_msg.drive.steering_angle = self.steering_angle
+        ackermann_cmd_msg.drive.speed = self.reference_speed
+        ackermann_cmd_msg.drive.steering_angle = self.reference_steering_angle
         self.motors_pub.publish(ackermann_cmd_msg)
+        self.print_state()
 
     def print_state(self):
         sys.stderr.write('\x1b[2J\x1b[H')
@@ -87,9 +127,13 @@ class AckermannDriveKeyop:
         rospy.loginfo('\x1b[1M\rPress <ctrl-c> or <q> to exit')
         rospy.loginfo('\x1b[1M\r*********************************************')
         rospy.loginfo('\x1b[1M\r'
-                      '\033[34;1mSpeed: \033[32;1m%0.2f m/s, '
-                      '\033[34;1mSteer Angle: \033[32;1m%0.1f rad\033[0m',
+                      '\033[34;1mGoal:      Speed: \033[32;1m%0.2f m/s, '
+                      '\033[34;1mSteering Angle: \033[32;1m%0.1f rad\033[0m',
                       self.speed, self.steering_angle)
+        rospy.loginfo('\x1b[1M\r'
+                      '\033[34;1mReference: Speed: \033[32;1m%0.2f m/s, '
+                      '\033[34;1mSteering Angle: \033[32;1m%0.1f rad\033[0m',
+                      self.reference_speed, self.reference_steering_angle)
 
     def get_key(self):
         tty.setraw(sys.stdin.fileno())
@@ -101,7 +145,7 @@ class AckermannDriveKeyop:
 
     def key_loop(self):
         self.settings = termios.tcgetattr(sys.stdin)
-        while 1:
+        while not rospy.is_shutdown():
             key = self.get_key()
             if key in key_bindings.keys():
                 if key == control_keys['space']:
